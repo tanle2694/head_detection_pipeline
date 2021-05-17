@@ -1,5 +1,5 @@
 import argparse
-
+from utils import use_k8s_secret
 parser = argparse.ArgumentParser()
 parser.add_argument("--arg1")
 parser.add_argument("--arg2")
