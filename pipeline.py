@@ -1,20 +1,24 @@
 import kfp.dsl as dsl
 from utils import use_k8s_secret
 from kubernetes import client as k8s_client
+import kfp
+from kfp.dsl._pipeline import PipelineConf
 
+pipeline_conf = PipelineConf()
+pipeline_conf.ttl_seconds_after_finished = 86400 *3
 
 @dsl.pipeline(
     name="Head Detection Pipeline",
     description=""
 )
-def pipeline(git_repo,
+def pipeline_head(git_repo,
              branch="master",
              rev='HEAD',
              git_secret="git-creds"):
     src_vol_op = dsl.VolumeOp(
         name="Git_source_pvc",
         resource_name="git-pvc",
-        size='50Mi',
+        size='60Mi',
         modes=dsl.VOLUME_MODE_RWM
     )
 
@@ -25,7 +29,6 @@ def pipeline(git_repo,
                    f"--repo={git_repo}",
                    "--root=/tmp/src",
                    "--dest=pipeline_source",
-                   "--depth=1",
                    f"--rev={rev}",
                    f"--branch={branch}",
                    "--one-time"
@@ -58,8 +61,14 @@ def pipeline(git_repo,
     ).add_env_variable(k8s_client.V1EnvVar(name="PYTHONPATH", value="/tmp/src/pipeline_source"))
     step2.execution_options.caching_strategy.max_cache_staleness = "P0D"
 
-if __name__ == "__main__":
-    import kfp.compiler as compiler
-    compiler.Compiler().compile(pipeline, __file__ + ".yaml")
 
-#git@github.com:tanle2694/head_detection_pipeline.git
+if __name__ == "__main__":        
+    session_cookie="authservice_session=MTYyMTMwMzc4OXxOd3dBTkZVM1NWcEZXbEpVUmtFelV6Wk1UVFF5TlZkSVZFSkJUbEpMTWtsU1dqSTBSRWMxV2pWQ1JsZFBXRGRUVkZBMFdFUlZSRkU9fPPga611a2NuWEZb1_7WZmS9r2RoOM6yx2ye8gLsXoNY"
+    api_endpoint = "http://10.0.19.82:8080/pipeline"
+    client = kfp.Client(host=api_endpoint, cookies=session_cookie)
+    namespace='kubeflow-user-example-com'
+    client.create_run_from_pipeline_func(pipeline_head, arguments={"rev": "086727bbdf6d18b1cd4e4996abfb80d0850b4025"}, experiment_name="tanlmtest",
+                                             namespace="kubeflow-user-example-com", pipeline_conf=pipeline_conf)
+
+
+
